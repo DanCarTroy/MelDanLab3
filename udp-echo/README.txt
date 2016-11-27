@@ -1,6 +1,6 @@
 # UDP Example in Java
 
-## Requirement
+## Requirements
 1. [Oracle JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)
 2. [Apache Maven](https://maven.apache.org/) 
 
