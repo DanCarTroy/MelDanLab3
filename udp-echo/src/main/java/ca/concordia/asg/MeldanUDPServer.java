@@ -13,12 +13,16 @@ import org.slf4j.LoggerFactory;
 
 
 
+
+
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -231,6 +235,16 @@ public class MeldanUDPServer {
     	    	  bis.read(mybytearray, 0, mybytearray.length);//reading file and saving it to mybytearray
     	    	  
     	        //Write a method/statements to reply to the client 
+    	    	
+    	    	  //transforming  mybytearray to an array of packets
+    	    	  //router address and host
+    	    	  String routerHost = (String) opts.valueOf("router-host");
+    	          int routerPort = Integer.parseInt((String) opts.valueOf("router-port"));
+    	          
+    	          
+    	    	  InetSocketAddress clientAddress = new InetSocketAddress(packetWithAddOfClient.getPeerAddress(), packetWithAddOfClient.getPeerPort() ) ;
+    	    	  Packet[] packets = dataToPackets(mybytearray, clientAddress); 
+    	    	  
   	             
   	            System.out.println();
                   System.out.println("SENDING RESPONSE");
@@ -373,6 +387,71 @@ public class MeldanUDPServer {
         System.out.println("Received a packet");
         
         return packet;
+    }
+    
+    /**
+     * This method transforms a byte[] into an array of Packets. Useful before sending it to the server through our UDP interface. 
+     * @return Array of packets representing the string
+     */
+    public static Packet[] dataToPackets(byte[] data, InetSocketAddress clientAddress)
+    {
+    	
+    	int a = data.length; // The length of the string
+    	int b = Packet.MAX_LEN - Packet.MIN_LEN; // The maximum size of the packet (payload of the packet without counting the 11 extra bytes)
+    	
+    	int numOfPackets = (a / b) + ((a % b == 0) ? 0 : 1);
+    	
+    	//System.out.print("Num of packets: "+numOfPackets );
+    	
+    	Packet[] arrOfPackets = new Packet[numOfPackets];
+    
+    	byte[] tmpPayload = new byte[b];
+    	int firstIndex, lastIndex = 0;
+    	
+    	for(int i = 0; i < numOfPackets; i++)
+    	{
+    		lastIndex = (b*(i+1)) - 1;
+    		firstIndex = lastIndex - (b-1);
+    		
+    		if(i == numOfPackets-1)
+    		{
+    			if(data.length < (lastIndex + 1))//4052)
+    			{
+    				lastIndex = data.length - 1; //4051 - 1 = 4050
+    				int initialFirstIndex = firstIndex;
+    				
+    				for(int j = 0; j < ((lastIndex - initialFirstIndex)+1); j++)
+    	        	{
+    	        		tmpPayload[j] = data[firstIndex];
+    	        		firstIndex++;
+    	        	}
+    			}
+    		}
+    		else
+    		{
+	    		for(int j = 0; j < b; j++)
+	        	{
+	        		tmpPayload[j] = data[firstIndex];
+	        		firstIndex++;
+	        	}
+    		}
+    		
+    		Packet packet = new Packet.Builder()
+                    .setType(3) // Type 3 is an DATA packet
+                    .setSequenceNumber(i+1)
+                    .setPortNumber(clientAddress.getPort())
+                    .setPeerAddress(clientAddress.getAddress())
+                    .setPayload(tmpPayload)
+                    .create();
+    		
+    		arrOfPackets[i] = new Packet(packet);  // has to be a deep copy or else things won't work
+    		
+    		tmpPayload = new byte[b];
+    	}
+    	
+    	
+    	
+    	return arrOfPackets;
     }
     
 
