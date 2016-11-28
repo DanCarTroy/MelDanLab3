@@ -2,12 +2,23 @@ package ca.concordia.asg;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 
+
+
+
+
+
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
@@ -15,6 +26,8 @@ import java.nio.ByteOrder;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.Scanner;
@@ -48,7 +61,7 @@ public class MeldanUDPServer {
             
             ArrayList<Packet> listOfPackets = new ArrayList<Packet>(); 
             
-            Packet packetWithAddOfClient = null;
+            Packet packetWithAddOfClient = null; // It is going to be used to store the address of the client. 
             
             while(true)
             {
@@ -66,8 +79,8 @@ public class MeldanUDPServer {
 	                router = channel.receive(buf); //accepts raw data
 	                Packet packet = receivePacket(channel, buf, router);
 	                
-	                	
-	                String payload = new String(packet.getPayload(), UTF_8);
+	                System.out.println("My payload is, without padding: ");
+	                String payload = new String(packet.getPayload(), UTF_8).trim();
 	                logger.info("Packet: {}", packet);
 	                logger.info("Payload: {}", payload);
 	                logger.info("Router: {}", router);
@@ -100,7 +113,7 @@ public class MeldanUDPServer {
 	            while(iter.hasNext())
 	            {
 	            	// All the packets put together into a String
-	            	dataFromClient  += new String(iter.next().getPayload());
+	            	dataFromClient  += new String(iter.next().getPayload()).trim();//remove white spsaces
 	            }
 	            
 	            System.out.println();
@@ -112,7 +125,16 @@ public class MeldanUDPServer {
 	             */
 	            
 	            // WRITE HERE:
+	            String [] arr = dataFromClient.split(" ");
 	            
+	            if(arr[0].equals("get"))
+	            {
+	            	get(arr, packetWithAddOfClient);
+	            }
+	            else if(arr[0].equals("post"))
+	            {
+	            	post(arr, packetWithAddOfClient);
+	            }
 	            /**
 	             * Write a method/statements to reply to the client 
 	             */
@@ -148,7 +170,116 @@ public class MeldanUDPServer {
     	
    }
    
-    /**
+    private void post() {
+		// TODO Auto-generated method stub
+		
+	}
+    
+    public static Date addDays(Date date, int days)
+    {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.add(Calendar.DATE, days); //minus number would decrement the days
+        return cal.getTime();
+    }
+    
+    public static String listFilesInDirectory(final File dir) {
+    	String str = "";
+        for (final File fileEntry : dir.listFiles()) {
+            if (fileEntry.isDirectory()) {
+                listFilesInDirectory(fileEntry);
+            } else {
+                str += fileEntry.getName() +" <BR>\n";
+            }
+        }
+        
+        return str;
+    }
+    
+	private void get(String[] arr, Packet packetWithAddOfClient) {
+		// TODO Auto-generated method stub
+		String toReturn = "";
+		// Responding to client according to what we have received
+        Date today = new Date();
+        Date expires = addDays(today, 2); // constructor deprecated, change with something else later
+        final File dir = new File("C:\\Users\\Mel\\Documents\\fall2016");
+		
+		if(arr[1].equals("/"))
+    	{
+    		toReturn +=("HTTP/1.0 200 OK\r\n");
+            toReturn +=("Date: "+(today)+"\r\n");
+            toReturn +=("Server: Meldan Server/0.7.6\r\n");
+            toReturn +=("Content-Type: text/html\r\n");
+            toReturn +=("Content-Length: 150\r\n");
+            toReturn +=("Expires: "+(expires)+"\r\n");
+            toReturn +=("Last-modified: "+(today)+"\r\n");
+            toReturn +=("\r\n");
+            toReturn +=("<TITLE>Lab 2</TITLE>");
+            toReturn +=("<P>Listing files in the data directory:</P>");
+            toReturn +=("<P>"+listFilesInDirectory(dir)+"</P>");
+    		
+    	}
+    	else if(arr[1].contains("/"))
+    	{
+    		String fileName = arr[1].substring(arr[1].indexOf('/')+1);
+    		System.out.println("my file name is "+fileName);
+    		 final File myFile = new File(dir.getPath() + "\\" + fileName);
+    		 System.out.println(myFile);
+    	      byte[] mybytearray = new byte[(int) myFile.length()];
+    	      try{
+    	    	  BufferedInputStream bis = new BufferedInputStream(new FileInputStream(myFile));
+    	    	  bis.read(mybytearray, 0, mybytearray.length);//reading file and saving it to mybytearray
+    	    	  
+    	        //Write a method/statements to reply to the client 
+  	             
+  	            System.out.println();
+                  System.out.println("SENDING RESPONSE");
+  	            
+                  String payload = "Hello, I am the server. I received all your packets. Thank you.";
+                  logger.info("Sending: {}", payload);
+
+                  // Send the response to the router not the client.
+                  // The peer address of the packet is the address of the client already.
+                  // We can use toBuilder to copy properties of the current packet.
+                  // This demonstrate how to create a new packet from an existing packet.
+                  Packet resp = packetWithAddOfClient.toBuilder()
+                          .setPayload(payload.getBytes())
+                          .create();
+                  logger.info("Packet: {}", resp);
+                  logger.info("Sending: {}", payload);
+                  logger.info("Router: {}", router);
+                  channel.send(resp.toBuffer(), router);
+    	    	  
+//    	    	  OutputStream os = clientSocket.getOutputStream();
+//        	      os.write(mybytearray, 0, mybytearray.length);
+//        	      os.flush();
+//        	      os.close();
+//    	    	  bis.close();
+    	      }
+    	      catch(FileNotFoundException e)
+    	      {
+    	    	  out.write("HTTP/1.0 200 OK\r\n");
+                  out.write("Date: "+(today)+"\r\n");
+                  out.write("Server: Meldan Server/0.7.6\r\n");
+                  out.write("Content-Type: text/html\r\n");
+                  out.write("Content-Length: 150\r\n");
+                  out.write("Expires: "+(expires)+"\r\n");
+                  out.write("Last-modified: "+(today)+"\r\n");
+                  out.write("\r\n");
+                  out.write("<TITLE>HTTP ERROR 404</TITLE>");
+                  out.write("<P>HTTP ERROR 404</P>");
+                  System.out.println("HTTP ERROR 404");
+    	      }
+    	      
+    	      
+    	      
+    	     
+    	      
+    	}
+		
+	}
+
+	/**
      * Waits for a SYN sent by a client in order to establish a connection (3-way handshake).
      * @throws IOException 
      */

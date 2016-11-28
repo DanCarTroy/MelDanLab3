@@ -2,6 +2,7 @@ package ca.concordia.asg;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,10 +52,16 @@ public class MeldanUDPClient {
     			System.out.println("THE SERVER RECEIVED MY ACK. SUCCESSFULLY ESTABLISHED CONNECTION.");
     			System.out.println("We can start sending data packets to the server.\n");
     		
-				// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
+    			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			String requestToSend = generateMySampleStr();
+    			String requestToSend = "get localhost/bestWish.txt"; //takeUserInput();
+    		//	String requestToSend = generateMySampleStr();
+    			
+    			//takeUserInput(requestToSend, keyboard);
+    			
+    			
+    			
     			System.out.println("Byte length of my string: "+ requestToSend.getBytes().length);
     			
     			// Transforms the String requestToSend into a array of packets. 
@@ -396,5 +403,54 @@ public class MeldanUDPClient {
     	
     			return strTest;
     }
+    
+   public static String takeUserInput() {
+	   
+	
+		String cmd = new String(); //String used to store user input
+		@SuppressWarnings("resource")
+		Scanner kb = new Scanner(System.in);
+		
+	   
+	    do
+		{
+			System.out.println("Enter Meldan commands and press enter. For help enter help, \\h, or ?");
+			System.out.println("For Lab 2 commands do the following:");
+			System.out.println("1) get localhost/ --> Returns a list of the current files in the data directory");
+			System.out.println("2) get localhost/bestWish.txt --> Returns the content of the file bestWish.txt in the data directory");
+			System.out.println("3) post localhost/bestWish.txt \"content\" --> Rewrites the file bestWish.txt with the content written by the user");
+			cmd = kb.nextLine();
+			//System.out.println(cmd);
+			String [] arr = cmd.split(" ");
+			
+			
+			// Main commands 
+			switch(arr[0]) 
+			{
+			case "get": return cmd;  
+			case "post": return cmd;  
+			case "help" :  case "\\h": case "?": help(); break;
+			case "exit" : return "exit";
+			default : System.out.println("Please enter a valid command.");
+			}
+			
+		
+	   }while(!cmd.equals("exit"));
+		return "not-valid";
+   }
+   
+   public static void help()
+   {
+ 	  System.out.println("Enter a command in the following format: \n" +
+ 	  		  "meldan get -v -h a:b -h c:d url/extension \nNote: The url does not contain \"http://\" \n" + 
+ 			  "Example 1: meldan get -v -h a:b httpbin.org/get?course=networking&assignment=1 \n" +
+ 	  		  "Example 2: meldan get -v -h Content-Type:application/json -h a:b -h c:d -h z:2 google.ca/?gws_rd=cr&ei=qQr4V6PzGYiF-wHFlqeICg#q=hello \n" +
+ 			  "Example 3: meldan post -h Content-Type:application/json -d '{\"Assignment\":_1}' httpbin.org/post \n" +
+ 	  		  "Example 4: meldan post -h a:b -f C:\\Users\\Daniel\\Documents\\fileName.txt httpbin.org/post");
+
+ 	  System.out.println("Enter the command 'exit' to end session.");
+   }
+   
+   
 }
 
