@@ -131,6 +131,8 @@ public class MeldanUDPServer {
 	            // WRITE HERE:
 	            String [] arr = dataFromClient.split(" ");
 	            
+	            byte[] mybytearray = null;
+	            
 	            if(arr[0].equals("get"))
 	            {
 	            	get(arr, packetWithAddOfClient, router, channel);
@@ -139,27 +141,18 @@ public class MeldanUDPServer {
 	            {
 	            	post(arr, packetWithAddOfClient, router, channel);
 	            }
-	            /**
-	             * Write a method/statements to reply to the client 
-	             */
-	             
-	            System.out.println();
-                System.out.println("SENDING RESPONSE");
-	            
-                String payload = "Hello, I am the server. I received all your packets. Thank you.";
-                logger.info("Sending: {}", payload);
-
-                // Send the response to the router not the client.
-                // The peer address of the packet is the address of the client already.
-                // We can use toBuilder to copy properties of the current packet.
-                // This demonstrate how to create a new packet from an existing packet.
-                Packet resp = packetWithAddOfClient.toBuilder()
-                        .setPayload(payload.getBytes())
-                        .create();
-                logger.info("Packet: {}", resp);
-                logger.info("Sending: {}", payload);
-                logger.info("Router: {}", router);
-                channel.send(resp.toBuffer(), router);
+		          //Write a method/statements to reply to the client 
+	    	    	
+	  	    	  InetSocketAddress clientAddress = new InetSocketAddress(packetWithAddOfClient.getPeerAddress(), packetWithAddOfClient.getPeerPort() ) ;
+	  	    	  
+	  	    	  //transforming  mybytearray (which is the data that we got to the file) to an array of packets
+	  	    	  Packet[] packets = dataToPackets(mybytearray, clientAddress); 
+	  	    	  
+		             
+		             System.out.println();
+	                System.out.println("SENDING RESPONSE");
+	                
+	                sendingResponseToClient(packets, channel, router);
                 
                 System.out.println();
                 logger.info("EchoServer is listening at {}", channel.getLocalAddress());
@@ -200,9 +193,10 @@ public class MeldanUDPServer {
         return str;
     }
     
-	private void get(String[] arr, Packet packetWithAddOfClient, SocketAddress router, DatagramChannel channel) {
+	private byte[] get(String[] arr, Packet packetWithAddOfClient, SocketAddress router, DatagramChannel channel) throws IOException {
 		// TODO Auto-generated method stub
 		String toReturn = "";
+		byte[] mybytearray = null;
 		// Responding to client according to what we have received
         Date today = new Date();
         Date expires = addDays(today, 2); // constructor deprecated, change with something else later
@@ -221,6 +215,7 @@ public class MeldanUDPServer {
             toReturn +=("<TITLE>Lab 2</TITLE>");
             toReturn +=("<P>Listing files in the data directory:</P>");
             toReturn +=("<P>"+listFilesInDirectory(dir)+"</P>");
+            mybytearray = toReturn.getBytes();
     		
     	}
     	else if(arr[1].contains("/"))
@@ -229,38 +224,29 @@ public class MeldanUDPServer {
     		System.out.println("my file name is "+fileName);
     		 final File myFile = new File(dir.getPath() + "\\" + fileName);
     		 System.out.println(myFile);
-    	      byte[] mybytearray = new byte[(int) myFile.length()];
+    	      mybytearray = new byte[(int) myFile.length()];
     	      try{
     	    	  BufferedInputStream bis = new BufferedInputStream(new FileInputStream(myFile));
     	    	  bis.read(mybytearray, 0, mybytearray.length);//reading file and saving it to mybytearray
-    	    	  
-    	        //Write a method/statements to reply to the client 
     	    	
-    	    	  InetSocketAddress clientAddress = new InetSocketAddress(packetWithAddOfClient.getPeerAddress(), packetWithAddOfClient.getPeerPort() ) ;
-    	    	  
-    	    	  //transforming  mybytearray (which is the data that we got to the file) to an array of packets
-    	    	  Packet[] packets = dataToPackets(mybytearray, clientAddress); 
-    	    	  
-  	             
-  	             System.out.println();
-                  System.out.println("SENDING RESPONSE");
-                  
-                  sendingResponseToClient(packets, channel, router);
-  	            
     	      }
     	      catch(FileNotFoundException e)
     	      {
-    	    	  out.write("HTTP/1.0 200 OK\r\n");
-                  out.write("Date: "+(today)+"\r\n");
-                  out.write("Server: Meldan Server/0.7.6\r\n");
-                  out.write("Content-Type: text/html\r\n");
-                  out.write("Content-Length: 150\r\n");
-                  out.write("Expires: "+(expires)+"\r\n");
-                  out.write("Last-modified: "+(today)+"\r\n");
-                  out.write("\r\n");
-                  out.write("<TITLE>HTTP ERROR 404</TITLE>");
-                  out.write("<P>HTTP ERROR 404</P>");
-                  System.out.println("HTTP ERROR 404");
+    	    	  toReturn +=("HTTP/1.0 200 OK\r\n");
+                  toReturn +=("Date: "+(today)+"\r\n");
+                  toReturn +=("Server: Meldan Server/0.7.6\r\n");
+                  toReturn +=("Content-Type: text/html\r\n");
+                  toReturn +=("Content-Length: 150\r\n");
+                  toReturn +=("Expires: "+(expires)+"\r\n");
+                  toReturn +=("Last-modified: "+(today)+"\r\n");
+                  toReturn +=("\r\n");
+                  toReturn +=("<TITLE>HTTP ERROR 404</TITLE>");
+                  toReturn +=("<P>HTTP ERROR 404</P>");
+                  
+                  mybytearray = toReturn.getBytes();
+                  System.out.println("Client asked for a file that does not exist. HTTP ERROR 404");
+                  return mybytearray;
+                  
     	      }
     	      
     	      
@@ -268,6 +254,8 @@ public class MeldanUDPServer {
     	     
     	      
     	}
+		
+		return mybytearray;
 		
 	}
 
