@@ -6,25 +6,19 @@ import joptsimple.OptionSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-
-
-
-
-
-
-
-
-
-
-
 import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -144,7 +138,7 @@ public class MeldanUDPServer {
 	            }
 	            else if(arr[0].equals("post"))
 	            {
-	            	//post(arr,dataFromClient, packetWithAddOfClient, router, channel);
+	            	post(arr,dataFromClient, packetWithAddOfClient, router, channel);
 	            }
 		          //Write a method/statements to reply to the client 
 	    	    	
@@ -173,7 +167,7 @@ public class MeldanUDPServer {
    }
    
     private void post(String[] arr, String dataFromClient, Packet packetWithAddOfClient,
-			SocketAddress router, DatagramChannel channel) throws FileNotFoundException {
+			SocketAddress router, DatagramChannel channel) throws UnsupportedEncodingException, IOException {
     	String fileContent = ""; 
     	System.out.println("Message from Client: " + dataFromClient);
     	
@@ -185,7 +179,9 @@ public class MeldanUDPServer {
   			//Get content in quotations and assign it to String message
   		  fileContent = m.group(1);
   		}
-  		  
+  		System.out.println("file name is"+ fileName);
+  		System.out.println("file content is" + dataFromClient);
+
   		   PrintWriter printWriter = new PrintWriter (fileName);
 		   printWriter.println (fileContent);
   		   printWriter.close (); 

@@ -55,7 +55,7 @@ public class MeldanUDPClient {
     			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			String requestToSend = "get localhost/"; //takeUserInput();
+    			String requestToSend = "post localhost/worksActuallyRight.txt \"lol its working\""; //takeUserInput();
     		//	String requestToSend = generateMySampleStr();
     			
     			//takeUserInput(requestToSend, keyboard);
