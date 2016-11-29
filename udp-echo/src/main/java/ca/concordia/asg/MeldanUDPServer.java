@@ -50,6 +50,7 @@ import static java.util.Arrays.asList;
 public class MeldanUDPServer {
 
     private static final Logger logger = LoggerFactory.getLogger(MeldanUDPServer.class);
+    private final String dataDirectory = "C:\\Users\\Mel\\Documents\\fall2016";
 
     private void listenAndServe(int port) throws IOException {
 
@@ -134,11 +135,11 @@ public class MeldanUDPServer {
 	            
 	            if(arr[0].equals("get"))
 	            {
-	            	mybytearray = get(arr, packetWithAddOfClient, router, channel);
+	            	mybytearray = get(arr, packetWithAddOfClient, router, channel, dataDirectory);
 	            }
 	            else if(arr[0].equals("post"))
 	            {
-	            	post(arr,dataFromClient, packetWithAddOfClient, router, channel);
+	            	mybytearray = post(arr,dataFromClient, packetWithAddOfClient, router, channel, dataDirectory);
 	            }
 		          //Write a method/statements to reply to the client 
 	    	    	
@@ -153,6 +154,9 @@ public class MeldanUDPServer {
 	                
 	                sendingResponseToClient(packets, channel, router);
                 
+                listOfPackets.clear(); // Clears the list of packets received so that in the next iteration
+                                       // we only store the new packets received for that iteration 
+	            					   // instead of appending them to old packets from a previous iteration
                 System.out.println();
                 logger.info("EchoServer is listening at {}", channel.getLocalAddress());
                 
@@ -166,8 +170,8 @@ public class MeldanUDPServer {
     	
    }
    
-    private void post(String[] arr, String dataFromClient, Packet packetWithAddOfClient,
-			SocketAddress router, DatagramChannel channel) throws UnsupportedEncodingException, IOException {
+    private byte[] post(String[] arr, String dataFromClient, Packet packetWithAddOfClient,
+			SocketAddress router, DatagramChannel channel, String dataDirectory) throws UnsupportedEncodingException, IOException {
     	String fileContent = ""; 
     	System.out.println("Message from Client: " + dataFromClient);
     	
@@ -179,13 +183,15 @@ public class MeldanUDPServer {
   			//Get content in quotations and assign it to String message
   		  fileContent = m.group(1);
   		}
-  		System.out.println("file name is"+ fileName);
-  		System.out.println("file content is" + dataFromClient);
+  		System.out.println("file name is: "+ fileName);
+  		
 
-  		   PrintWriter printWriter = new PrintWriter (fileName);
+  		   PrintWriter printWriter = new PrintWriter (dataDirectory+"\\"+fileName);
 		   printWriter.println (fileContent);
   		   printWriter.close (); 
-  		   System.out.println("file content is :"+ fileContent);
+  		   System.out.println("file content is: "+ fileContent);
+  		   
+  		   return ("success!").getBytes();
 	}
 
 	    
@@ -210,14 +216,14 @@ public class MeldanUDPServer {
         return str;
     }
     
-	private byte[] get(String[] arr, Packet packetWithAddOfClient, SocketAddress router, DatagramChannel channel) throws IOException {
+	private byte[] get(String[] arr, Packet packetWithAddOfClient, SocketAddress router, DatagramChannel channel, String dataDirectory) throws IOException {
 		// TODO Auto-generated method stub
 		String toReturn = "";
 		byte[] mybytearray = null;
 		// Responding to client according to what we have received
         Date today = new Date();
         Date expires = addDays(today, 2); // constructor deprecated, change with something else later
-        final File dir = new File("C:\\Users\\Mel\\Documents\\fall2016");
+        final File dir = new File(dataDirectory);
 		
         System.out.println("Arr 1 is: " + arr[1]);
 		if(arr[1].equals("localhost/"))

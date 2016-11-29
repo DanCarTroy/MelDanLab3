@@ -55,7 +55,7 @@ public class MeldanUDPClient {
     			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			String requestToSend = "post localhost/worksActuallyRight.txt \"lol its working\""; //takeUserInput();
+    			String requestToSend = "post localhost/worksActuallyRight.txt \"Modifying worksActuallyRight again !\""; //takeUserInput();
     		//	String requestToSend = generateMySampleStr();
     			
     			//takeUserInput(requestToSend, keyboard);
@@ -115,6 +115,8 @@ public class MeldanUDPClient {
 				/*
 				 * Write a method that receives response (all the packets) from the server
 				 */
+	            // Note: Here, client is just catching one packet from the server. If the server response is multiple packets 
+	            // only the first packet will be caught and the rest will be dropped. To fix this we will have to write a loop. 
 	             System.out.println();
 	             Packet packetFromServer = receivePacket(channel);
 	             String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8).trim();
