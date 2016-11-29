@@ -133,11 +133,11 @@ public class MeldanUDPServer {
 	            
 	            if(arr[0].equals("get"))
 	            {
-	            	get(arr, packetWithAddOfClient);
+	            	get(arr, packetWithAddOfClient, router, channel);
 	            }
 	            else if(arr[0].equals("post"))
 	            {
-	            	post(arr, packetWithAddOfClient);
+	            	post(arr, packetWithAddOfClient, router, channel);
 	            }
 	            /**
 	             * Write a method/statements to reply to the client 
@@ -200,7 +200,7 @@ public class MeldanUDPServer {
         return str;
     }
     
-	private void get(String[] arr, Packet packetWithAddOfClient) {
+	private void get(String[] arr, Packet packetWithAddOfClient, SocketAddress router, DatagramChannel channel) {
 		// TODO Auto-generated method stub
 		String toReturn = "";
 		// Responding to client according to what we have received
@@ -236,39 +236,17 @@ public class MeldanUDPServer {
     	    	  
     	        //Write a method/statements to reply to the client 
     	    	
-    	    	  //transforming  mybytearray to an array of packets
-    	    	  //router address and host
-    	    	  String routerHost = (String) opts.valueOf("router-host");
-    	          int routerPort = Integer.parseInt((String) opts.valueOf("router-port"));
-    	          
-    	          
     	    	  InetSocketAddress clientAddress = new InetSocketAddress(packetWithAddOfClient.getPeerAddress(), packetWithAddOfClient.getPeerPort() ) ;
+    	    	  
+    	    	  //transforming  mybytearray (which is the data that we got to the file) to an array of packets
     	    	  Packet[] packets = dataToPackets(mybytearray, clientAddress); 
     	    	  
   	             
-  	            System.out.println();
+  	             System.out.println();
                   System.out.println("SENDING RESPONSE");
+                  
+                  sendingResponseToClient(packets, channel, router);
   	            
-                  String payload = "Hello, I am the server. I received all your packets. Thank you.";
-                  logger.info("Sending: {}", payload);
-
-                  // Send the response to the router not the client.
-                  // The peer address of the packet is the address of the client already.
-                  // We can use toBuilder to copy properties of the current packet.
-                  // This demonstrate how to create a new packet from an existing packet.
-                  Packet resp = packetWithAddOfClient.toBuilder()
-                          .setPayload(payload.getBytes())
-                          .create();
-                  logger.info("Packet: {}", resp);
-                  logger.info("Sending: {}", payload);
-                  logger.info("Router: {}", router);
-                  channel.send(resp.toBuffer(), router);
-    	    	  
-//    	    	  OutputStream os = clientSocket.getOutputStream();
-//        	      os.write(mybytearray, 0, mybytearray.length);
-//        	      os.flush();
-//        	      os.close();
-//    	    	  bis.close();
     	      }
     	      catch(FileNotFoundException e)
     	      {
@@ -290,6 +268,53 @@ public class MeldanUDPServer {
     	     
     	      
     	}
+		
+	}
+
+	private void sendingResponseToClient(Packet[] pArray, DatagramChannel channel, SocketAddress routerAddr ) throws IOException {
+		
+		boolean cont = true;
+    	int counter = 0;
+    	
+		//Sending data packets to client (Type: 3) 
+		while(cont)
+        {
+			System.out.println();
+     		System.out.println("Run number " + (counter + 1));
+     		
+            channel.send(pArray[counter].toBuffer(), routerAddr);
+
+            logger.info("Sending \"{}\" to client at {}", new String(pArray[counter].getPayload()), routerAddr);
+
+        
+            counter++;
+            if(counter == pArray.length)
+            	cont = false;   
+    	
+        }
+		
+		for(int i = 0; i < 1000000000; i++)
+		{
+			
+		}
+		
+		System.out.println();
+		System.out.println("I SENT ALL MY RESPONSE PACKETS TO THE CLIENT");
+		
+		//Send SYN to let the client know I have sent all my packets
+		Packet p = new Packet.Builder()
+                .setType(0)
+                .setSequenceNumber(0)
+                .setPortNumber(pArray[0].getPeerPort())
+                .setPeerAddress(pArray[0].getPeerAddress())
+                .setPayload("CLOSING_SYN".getBytes())
+                .create();
+    
+        channel.send(p.toBuffer(), routerAddr);
+
+        logger.info("Sending \"{}\" to router at {}", new String(p.getPayload(), UTF_8), routerAddr);
+		
+		
 		
 	}
 
