@@ -55,7 +55,7 @@ public class MeldanUDPClient {
     			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			String requestToSend = "get localhost/bestWish.txt"; //takeUserInput();
+    			String requestToSend = "get localhost/"; //takeUserInput();
     		//	String requestToSend = generateMySampleStr();
     			
     			//takeUserInput(requestToSend, keyboard);
@@ -78,7 +78,7 @@ public class MeldanUDPClient {
 		     		
 		            channel.send(pArray[counter].toBuffer(), routerAddr);
 		
-		            logger.info("Sending \"{}\" to router at {}", new String(pArray[counter].getPayload()), routerAddr);
+		            logger.info("Sending \"{}\" to router at {}", new String(pArray[counter].getPayload()).trim(), routerAddr);
 		
 		            
 		            //receivePacket(channel); 
@@ -117,7 +117,7 @@ public class MeldanUDPClient {
 				 */
 	             System.out.println();
 	             Packet packetFromServer = receivePacket(channel);
-	             String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8);
+	             String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8).trim();
 	             System.out.println("Response from server: " + strPayload);
 	            
 				
@@ -158,7 +158,7 @@ public class MeldanUDPClient {
     	
     	// Sending SYN packet to the server
     	channel.send(synP.toBuffer(), routerAddr);
-        logger.info("Sending \"{}\" to router at {}", new String(synP.getPayload()), routerAddr);
+        logger.info("Sending \"{}\" to router at {}", new String(synP.getPayload()).trim(), routerAddr);
 
         
         /**
@@ -172,7 +172,7 @@ public class MeldanUDPClient {
         {
         	synAckPacket = receivePacket(channel);
         	// Getting the acknowledgment number   
-            String akwPayload = new String(synAckPacket.getPayload(), StandardCharsets.UTF_8); // If I get a NullPointerException is because I have not received a SYN-ACK (or other packet from the server) after a certain amount of time.
+            String akwPayload = new String(synAckPacket.getPayload(), StandardCharsets.UTF_8).trim(); // If I get a NullPointerException is because I have not received a SYN-ACK (or other packet from the server) after a certain amount of time.
             synAck_aknowledgeNum = Long.parseLong(akwPayload); // If I get a NumberFormatException is because I am getting a packet that it is not a SYN-ACK
             													// We have to fix this later (This error happens when I run the client for a second time using the same instance of the server)
         	if( synAckPacket.getType() == 1 && ( synAck_aknowledgeNum == synP.getSequenceNumber()+1 ) )
@@ -241,7 +241,7 @@ public class MeldanUDPClient {
         Packet resp = Packet.fromBuffer(buf);
         logger.info("Packet: {}", resp);
         logger.info("Router: {}", router);
-        String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
+        String payload = new String(resp.getPayload(), StandardCharsets.UTF_8).trim();
         logger.info("Payload: {}",  payload);
 
         keys.clear();

@@ -16,12 +16,15 @@ import org.slf4j.LoggerFactory;
 
 
 
+
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -35,6 +38,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
@@ -135,11 +140,11 @@ public class MeldanUDPServer {
 	            
 	            if(arr[0].equals("get"))
 	            {
-	            	get(arr, packetWithAddOfClient, router, channel);
+	            	mybytearray = get(arr, packetWithAddOfClient, router, channel);
 	            }
 	            else if(arr[0].equals("post"))
 	            {
-	            	post(arr, packetWithAddOfClient, router, channel);
+	            	//post(arr,dataFromClient, packetWithAddOfClient, router, channel);
 	            }
 		          //Write a method/statements to reply to the client 
 	    	    	
@@ -167,11 +172,27 @@ public class MeldanUDPServer {
     	
    }
    
-    private void post() {
-		// TODO Auto-generated method stub
-		
+    private void post(String[] arr, String dataFromClient, Packet packetWithAddOfClient,
+			SocketAddress router, DatagramChannel channel) throws FileNotFoundException {
+    	String fileContent = ""; 
+    	System.out.println("Message from Client: " + dataFromClient);
+    	
+  		   //retrieve file name
+  		String fileName= arr[1].substring(arr[1].lastIndexOf('/')+1);
+  		Pattern p = Pattern.compile("\"([^\"]*)\"");
+  		Matcher m = p.matcher(dataFromClient);
+  		while (m.find()) {
+  			//Get content in quotations and assign it to String message
+  		  fileContent = m.group(1);
+  		}
+  		  
+  		   PrintWriter printWriter = new PrintWriter (fileName);
+		   printWriter.println (fileContent);
+  		   printWriter.close (); 
+  		   System.out.println("file content is :"+ fileContent);
 	}
-    
+
+	    
     public static Date addDays(Date date, int days)
     {
         Calendar cal = Calendar.getInstance();
@@ -202,7 +223,8 @@ public class MeldanUDPServer {
         Date expires = addDays(today, 2); // constructor deprecated, change with something else later
         final File dir = new File("C:\\Users\\Mel\\Documents\\fall2016");
 		
-		if(arr[1].equals("/"))
+        System.out.println("Arr 1 is: " + arr[1]);
+		if(arr[1].equals("localhost/"))
     	{
     		toReturn +=("HTTP/1.0 200 OK\r\n");
             toReturn +=("Date: "+(today)+"\r\n");
