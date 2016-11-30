@@ -49,7 +49,7 @@ public class MeldanUDPClient {
     		
     		while(true)
     		{
-    			
+    			String requestToSend = takeUserInput();
     			establishConnection(channel, routerAddr, serverAddr);
     			
     			System.out.println();
@@ -59,10 +59,10 @@ public class MeldanUDPClient {
     			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			//"post localhost/worksActuallyRight.txt \"Modifying worksActuallyRight again !\"";
+    			//"post localhost/worksActuallyRight.txt \"CONTENT\"";
     			//"get localhost/POLI_ESSAY.txt";
     			
-    			String requestToSend = "post localhost/worksActuallyRight2.txt \"Creating worksActuallyRight2 ^_^ !\""; //takeUserInput();
+    			
     		//	String requestToSend = generateMySampleStr();
     			
     			//takeUserInput(requestToSend, keyboard);
@@ -167,7 +167,7 @@ public class MeldanUDPClient {
 	            
 	            
 				
-				break;
+			
     		}
         }
     	
