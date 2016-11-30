@@ -2,6 +2,7 @@ package ca.concordia.asg;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +21,7 @@ import java.util.Set;
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-// this is my second commit
+// this is my second commit *MEL WAS HERE. another update THis is a change!
 /**
  * Packet types
  * 0 : SYN
@@ -51,10 +52,16 @@ public class MeldanUDPClient {
     			System.out.println("THE SERVER RECEIVED MY ACK. SUCCESSFULLY ESTABLISHED CONNECTION.");
     			System.out.println("We can start sending data packets to the server.\n");
     		
-				// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
+    			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			String requestToSend = generateMySampleStr();
+    			String requestToSend = "post localhost/worksActuallyRight.txt \"Modifying worksActuallyRight again !\""; //takeUserInput();
+    		//	String requestToSend = generateMySampleStr();
+    			
+    			//takeUserInput(requestToSend, keyboard);
+    			
+    			
+    			
     			System.out.println("Byte length of my string: "+ requestToSend.getBytes().length);
     			
     			// Transforms the String requestToSend into a array of packets. 
@@ -71,7 +78,7 @@ public class MeldanUDPClient {
 		     		
 		            channel.send(pArray[counter].toBuffer(), routerAddr);
 		
-		            logger.info("Sending \"{}\" to router at {}", new String(pArray[counter].getPayload()), routerAddr);
+		            logger.info("Sending \"{}\" to router at {}", new String(pArray[counter].getPayload()).trim(), routerAddr);
 		
 		            
 		            //receivePacket(channel); 
@@ -108,9 +115,11 @@ public class MeldanUDPClient {
 				/*
 				 * Write a method that receives response (all the packets) from the server
 				 */
+	            // Note: Here, client is just catching one packet from the server. If the server response is multiple packets 
+	            // only the first packet will be caught and the rest will be dropped. To fix this we will have to write a loop. 
 	             System.out.println();
 	             Packet packetFromServer = receivePacket(channel);
-	             String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8);
+	             String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8).trim();
 	             System.out.println("Response from server: " + strPayload);
 	            
 				
@@ -151,7 +160,7 @@ public class MeldanUDPClient {
     	
     	// Sending SYN packet to the server
     	channel.send(synP.toBuffer(), routerAddr);
-        logger.info("Sending \"{}\" to router at {}", new String(synP.getPayload()), routerAddr);
+        logger.info("Sending \"{}\" to router at {}", new String(synP.getPayload()).trim(), routerAddr);
 
         
         /**
@@ -165,7 +174,7 @@ public class MeldanUDPClient {
         {
         	synAckPacket = receivePacket(channel);
         	// Getting the acknowledgment number   
-            String akwPayload = new String(synAckPacket.getPayload(), StandardCharsets.UTF_8); // If I get a NullPointerException is because I have not received a SYN-ACK (or other packet from the server) after a certain amount of time.
+            String akwPayload = new String(synAckPacket.getPayload(), StandardCharsets.UTF_8).trim(); // If I get a NullPointerException is because I have not received a SYN-ACK (or other packet from the server) after a certain amount of time.
             synAck_aknowledgeNum = Long.parseLong(akwPayload); // If I get a NumberFormatException is because I am getting a packet that it is not a SYN-ACK
             													// We have to fix this later (This error happens when I run the client for a second time using the same instance of the server)
         	if( synAckPacket.getType() == 1 && ( synAck_aknowledgeNum == synP.getSequenceNumber()+1 ) )
@@ -234,7 +243,7 @@ public class MeldanUDPClient {
         Packet resp = Packet.fromBuffer(buf);
         logger.info("Packet: {}", resp);
         logger.info("Router: {}", router);
-        String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
+        String payload = new String(resp.getPayload(), StandardCharsets.UTF_8).trim();
         logger.info("Payload: {}",  payload);
 
         keys.clear();
@@ -396,5 +405,54 @@ public class MeldanUDPClient {
     	
     			return strTest;
     }
+    
+   public static String takeUserInput() {
+	   
+	
+		String cmd = new String(); //String used to store user input
+		@SuppressWarnings("resource")
+		Scanner kb = new Scanner(System.in);
+		
+	   
+	    do
+		{
+			System.out.println("Enter Meldan commands and press enter. For help enter help, \\h, or ?");
+			System.out.println("For Lab 2 commands do the following:");
+			System.out.println("1) get localhost/ --> Returns a list of the current files in the data directory");
+			System.out.println("2) get localhost/bestWish.txt --> Returns the content of the file bestWish.txt in the data directory");
+			System.out.println("3) post localhost/bestWish.txt \"content\" --> Rewrites the file bestWish.txt with the content written by the user");
+			cmd = kb.nextLine();
+			//System.out.println(cmd);
+			String [] arr = cmd.split(" ");
+			
+			
+			// Main commands 
+			switch(arr[0]) 
+			{
+			case "get": return cmd;  
+			case "post": return cmd;  
+			case "help" :  case "\\h": case "?": help(); break;
+			case "exit" : return "exit";
+			default : System.out.println("Please enter a valid command.");
+			}
+			
+		
+	   }while(!cmd.equals("exit"));
+		return "not-valid";
+   }
+   
+   public static void help()
+   {
+ 	  System.out.println("Enter a command in the following format: \n" +
+ 	  		  "meldan get -v -h a:b -h c:d url/extension \nNote: The url does not contain \"http://\" \n" + 
+ 			  "Example 1: meldan get -v -h a:b httpbin.org/get?course=networking&assignment=1 \n" +
+ 	  		  "Example 2: meldan get -v -h Content-Type:application/json -h a:b -h c:d -h z:2 google.ca/?gws_rd=cr&ei=qQr4V6PzGYiF-wHFlqeICg#q=hello \n" +
+ 			  "Example 3: meldan post -h Content-Type:application/json -d '{\"Assignment\":_1}' httpbin.org/post \n" +
+ 	  		  "Example 4: meldan post -h a:b -f C:\\Users\\Daniel\\Documents\\fileName.txt httpbin.org/post");
+
+ 	  System.out.println("Enter the command 'exit' to end session.");
+   }
+   
+   
 }
 
