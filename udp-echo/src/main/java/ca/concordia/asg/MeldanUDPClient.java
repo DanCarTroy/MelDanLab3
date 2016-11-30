@@ -14,6 +14,8 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Set;
@@ -44,8 +46,10 @@ public class MeldanUDPClient {
  
     	try(DatagramChannel channel = DatagramChannel.open()){
     		
+    		
     		while(true)
     		{
+    			
     			establishConnection(channel, routerAddr, serverAddr);
     			
     			System.out.println();
@@ -55,7 +59,10 @@ public class MeldanUDPClient {
     			// GET THE GET OR POST REQUEST IN STRING FORMAT RIGHT HERE
     			// AND TRANSFORM IT INTO PACKETS USING stringToPackets method
     			
-    			String requestToSend = "post localhost/worksActuallyRight.txt \"Modifying worksActuallyRight again !\""; //takeUserInput();
+    			//"post localhost/worksActuallyRight.txt \"Modifying worksActuallyRight again !\"";
+    			//"get localhost/POLI_ESSAY.txt";
+    			
+    			String requestToSend = "post localhost/worksActuallyRight2.txt \"Creating worksActuallyRight2 ^_^ !\""; //takeUserInput();
     		//	String requestToSend = generateMySampleStr();
     			
     			//takeUserInput(requestToSend, keyboard);
@@ -117,12 +124,48 @@ public class MeldanUDPClient {
 				 */
 	            // Note: Here, client is just catching one packet from the server. If the server response is multiple packets 
 	            // only the first packet will be caught and the rest will be dropped. To fix this we will have to write a loop. 
+	             
+	            ArrayList<Packet> listOfPackets = new ArrayList<Packet>(); 
+                Packet packetWithAddOfServer = null; // It is going to be used to store the address of the server in case we want to reply. 
+	           
+                for ( ; ; ) {
 	             System.out.println();
 	             Packet packetFromServer = receivePacket(channel);
-	             String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8).trim();
-	             System.out.println("Response from server: " + strPayload);
+	             //String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8).trim();
+	             //System.out.println("Content of the packet: " + strPayload);
 	            
-				
+	             
+	             if(packetFromServer.getType() == 0)
+	                {
+	                	packetWithAddOfServer = new Packet(packetFromServer);
+	                	break;
+	                }
+	                
+		            listOfPackets.add(packetFromServer);
+	            }
+                
+                
+                System.out.println();
+	            System.out.println("I RECEIVED ALL THE PACKETS FROM THE SERVER");
+	           
+	            
+	            /**
+	             * This gets all the packets that we received from the client and puts them together 
+	             */
+	            
+	            Iterator<Packet> iter = listOfPackets.iterator();
+	            String dataFromClient = "";
+	            while(iter.hasNext())
+	            {
+	            	// All the packets put together into a String
+	            	dataFromClient  += new String(iter.next().getPayload()).trim();//remove white spsaces
+	            }
+	            
+	            System.out.println();
+	            System.out.println("Response from server:");
+	            System.out.println(dataFromClient);
+	            
+	            
 				
 				break;
     		}

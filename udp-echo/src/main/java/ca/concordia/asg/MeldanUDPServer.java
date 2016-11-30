@@ -50,7 +50,7 @@ import static java.util.Arrays.asList;
 public class MeldanUDPServer {
 
     private static final Logger logger = LoggerFactory.getLogger(MeldanUDPServer.class);
-    private final String dataDirectory = "C:\\Users\\Mel\\Documents\\fall2016";
+    private final String dataDirectory = "G:\\My Documents\\DataDirectory";
 
     private void listenAndServe(int port) throws IOException {
 
