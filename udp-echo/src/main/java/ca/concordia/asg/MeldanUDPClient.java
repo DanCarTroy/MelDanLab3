@@ -15,6 +15,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.Scanner;
@@ -51,7 +53,7 @@ public class MeldanUDPClient {
     		while(true)
     		{
     			String requestToSend = generateMySampleStr();//takeUserInput();
-    			establishConnection(channel, routerAddr, serverAddr);
+    			//establishConnection(channel, routerAddr, serverAddr);
     			
     			System.out.println();
     			System.out.println("THE SERVER RECEIVED MY ACK. SUCCESSFULLY ESTABLISHED CONNECTION.");
@@ -127,23 +129,66 @@ public class MeldanUDPClient {
 				 */
 				logger.info("Expecting a superNAK...");
 				int testC = 0;
-				while(true)
+				boolean flagTobreak = true;
+				while(flagTobreak)
 				{
 					Packet superNakFromServer = receivePacket(channel);
 					try{
 					if(superNakFromServer.getType() == 4)
 						System.out.println("YES, IT IS A SUPER NAK.");
 					    String strMis = (new String(superNakFromServer.getPayload())).trim();
+					    System.out.println(strMis);
 					    //if(strM)
-						int missingPackets = Integer.parseInt(strMis);
-						System.out.println(strMis);
-						if(missingPackets == 0)
+					    String [] misArr = strMis.split(" "); 
+					    Integer[] misPack = new Integer[misArr.length];
+					    for(int i = 0; i < misArr.length; i++)
+					    {
+					    	misPack[i] = Integer.parseInt(misArr[i]);
+					    }
+					    Arrays.sort(misPack);
+					    System.out.println("The sorted array is: " );
+					    for(int i=0; i< misPack.length; i++)
+					    	System.out.print(misPack[i] + " ");
+					    System.out.println();
+					    
+						//int missingPackets = Integer.parseInt(strMis);
+						//Sent a packet for each one of the missing packets in the list. 
+						for(int i=0; i < misPack.length; i++)
+						{
+							if(misPack[i] == 0)
+							{
+								channel.send(pArray[pArray.length - 1].toBuffer(), routerAddr);
+							}
+							else if(misPack[i] < 0)
+							{
+								System.out.println("IM HERE!JSAKJSAJSO");
+								//int countSure = 0;
+								//while(countSure <= 20)
+								//{
+									channel.send(pArray[0].toBuffer(), routerAddr); //Sending a default packet to get the server unstuck.
+								//}
+									flagTobreak = false;
+								break;
+								//channel.send(pArray[pArray.length - 1].toBuffer(), routerAddr);
+							}
+							else if(misPack[i] > 0)
+							{
+								System.out.println("Im in  pos and Mispack is" + misPack[i]);
+								channel.send(pArray[misPack[i]-1].toBuffer(), routerAddr);
+							}
+						}
+						/*
+						if(misPack[0] == 0)
 						{
 							channel.send(pArray[pArray.length - 1].toBuffer(), routerAddr);
 						}
 						else if(missingPackets < 0)
 						{
-							channel.send(pArray[0].toBuffer(), routerAddr); //Sending a default packet to get the server unstuck.
+							int countSure = 0;
+							//while(countSure <= 20)
+							//{
+								channel.send(pArray[0].toBuffer(), routerAddr); //Sending a default packet to get the server unstuck.
+							//}
 							break;
 							//channel.send(pArray[pArray.length - 1].toBuffer(), routerAddr);
 						}
@@ -151,15 +196,19 @@ public class MeldanUDPClient {
 						{
 							channel.send(pArray[missingPackets-1].toBuffer(), routerAddr);
 						}
+						*/
 						testC++;
 						if(testC == 10)
-						break;
+							break;
 					}
 					catch(NullPointerException e)
 					{
-						System.err.println("This error does not affect execution and results of the program");
-						e.printStackTrace();
+						//System.err.println("This error does not affect execution and results of the program");
+						//e.printStackTrace();
 					}
+					
+					channel.send(pArray[0].toBuffer(), routerAddr);// For safety
+					
 				}
 					logger.info("Received a superNAK!!");
 	             
@@ -167,6 +216,7 @@ public class MeldanUDPClient {
                 Packet packetWithAddOfServer = null; // It is going to be used to store the address of the server in case we want to reply. 
 	           
                 for ( ; ; ) {
+                	try{
 	             System.out.println();
 	             Packet packetFromServer = receivePacket(channel);
 	             //String strPayload = new String(packetFromServer.getPayload(), StandardCharsets.UTF_8).trim();
@@ -180,6 +230,11 @@ public class MeldanUDPClient {
 	                }
 	                
 		            listOfPackets.add(packetFromServer);
+                }
+                catch(Exception e)
+                	{
+                	 System.out.println("GOOD.");
+                	}
 	            }
                 
                 

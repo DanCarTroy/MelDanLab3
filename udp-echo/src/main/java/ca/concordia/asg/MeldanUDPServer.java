@@ -65,6 +65,7 @@ public class MeldanUDPServer {
     private static SocketAddress routerAdr;
     private static DatagramChannel currentChannel;// the currentChannel
     private static Timer timer;
+    static Packet packetWithAddOfClient;
     
     
     /**
@@ -93,19 +94,19 @@ public class MeldanUDPServer {
             
             ArrayList<Packet> listOfPackets = new ArrayList<Packet>(); 
             
-            Packet packetWithAddOfClient = null; // It is going to be used to store the address of the client. 
+            //Packet packetWithAddOfClient = null; // It is going to be used to store the address of the client. 
             
             while(true)
             {
             	
             	
-	            acceptConnection(channel, buf);  //Accept connection from the client
+	            //acceptConnection(channel, buf);  //Accept connection from the client
 	            
 	            /*
 	    		 * This will check the receiver list every 3 seconds (3000 milliseconds)
 	    		 * We are passing a lock so that no other threads can access the list while we are using it.
 	    		 */
-	    		timer = new Timer(3000, new checkingListActionListener(accountLock));
+	    		timer = new Timer(4000, new checkingListActionListener(accountLock));
 	    		timer.start();
 	    		
 	         
@@ -123,6 +124,7 @@ public class MeldanUDPServer {
 	                synchronized(accountLock)
 	                {
 	                packet = receivePacket(channel, buf, router);
+	                packetWithAddOfClient = new Packet(packet);
 	                }
 	                System.out.println("AFTE " + (testCount));
 	                
@@ -179,6 +181,13 @@ public class MeldanUDPServer {
 	            System.out.println();
 	            System.out.println("This is the data that we got from the client:");
 	            System.out.println(dataFromClient);
+	            
+	            // Reset all the variables to zero. 
+	            timer.stop();
+	            receiverWindow = new ArrayList<Packet>();
+	            totalDataPackets = 0; //The total amount of packets that the server is supposed to receive.
+	            haveAllPackets = false; 
+	            
 	            
 	            /**
 	             * Write a method/statements to do something with the data that we accepted. Ex: see if it is a get or a post
@@ -702,7 +711,7 @@ final class checkingListActionListener implements ActionListener {
 		 
 		synchronized(lock)
 		{
-		    System.out.println("3 seconds have passed. Checking the receiver window...");
+		    //System.out.println("3 seconds have passed. Checking the receiver window...");
 		    
 		    // Checking if we have received packet zero
 		    //if(gotPacketZero == false)
@@ -799,6 +808,7 @@ final class checkingListActionListener implements ActionListener {
 			    else
 			    {
 			    	Packet pThatContainsAddClient = null;
+			    	int check = 0;
 				    for(int i = 0; i < MeldanUDPServer.getTotalDataPackets(); i++)
 				    {
 				    	System.out.println("isInList: " + MeldanUDPServer.isInList(i) );
@@ -807,27 +817,37 @@ final class checkingListActionListener implements ActionListener {
 				    		
 				    	}
 				    	else
+				    	{
+				    		check++;
 				    		pThatContainsAddClient = MeldanUDPServer.getPacketWithSequenceNum(i);
+				    	}
 				    }
-				    System.out.println("Testing ABC: "+pThatContainsAddClient);
+				    //System.out.println("CHECK IS: "+check);
+				    //System.out.println("Testing ABC: "+pThatContainsAddClient);
 			    	
+				    try{
 			    	// Packet with information about the packets that were not received //SUPER NAK
 			    	Packet superNak = new Packet.Builder()
 			                .setType(4) // Type 4 is a NAK packet
 			                .setSequenceNumber(99999)
-			                .setPortNumber(pThatContainsAddClient.getPeerPort())
-			                .setPeerAddress(pThatContainsAddClient.getPeerAddress())
+			                .setPortNumber(MeldanUDPServer.packetWithAddOfClient.getPeerPort())
+			                .setPeerAddress(MeldanUDPServer.packetWithAddOfClient.getPeerAddress())
 			                .setPayload("0".getBytes())
 			                .create();
 			    	
-			    	
 			    	//Sending Super NAK to the client 
-			    	try {
-						MeldanUDPServer.getCurrentChannel().send(superNak.toBuffer(), MeldanUDPServer.getRouterAdr());
-					} catch (IOException e1) {
+			    	MeldanUDPServer.getCurrentChannel().send(superNak.toBuffer(), MeldanUDPServer.getRouterAdr());
+				    }
+				    catch(NullPointerException pt)
+				    {
+				    	return;
+				    }
+				    catch (IOException e1) {
 						// TODO Auto-generated catch block
 						e1.printStackTrace();
 					}
+			    	
+			    	
 					System.out.println();
 			    }
 		    //}
