@@ -28,6 +28,7 @@ import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Random;
@@ -35,8 +36,13 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.Timer;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 // this is my second commit
 /**
@@ -45,12 +51,31 @@ import static java.util.Arrays.asList;
  * 1 : SYN-ACK
  * 2 : ACK
  * 3 : Data
+ * 4 : NAK
  */
 
 public class MeldanUDPServer {
 
     private static final Logger logger = LoggerFactory.getLogger(MeldanUDPServer.class);
     private final String dataDirectory = "G:\\My Documents\\DataDirectory";
+    
+    private static ArrayList<Packet> receiverWindow = new ArrayList<Packet>();
+    private static int totalDataPackets; //The total amount of packets that the server is supposed to receive.
+    private static boolean haveAllPackets = false; 
+    private static SocketAddress routerAdr;
+    private static DatagramChannel currentChannel;// the currentChannel
+    private static Timer timer;
+    
+    
+    /**
+	 * Attribute used as a lock to synchronize
+	 */
+	private final static Object accountLock = new Object();
+	
+	static void stopTimer()
+	{
+		timer.stop();
+	}
 
     private void listenAndServe(int port) throws IOException {
 
@@ -62,6 +87,9 @@ public class MeldanUDPServer {
                     .allocate(Packet.MAX_LEN)
                     .order(ByteOrder.BIG_ENDIAN);
             
+            currentChannel = channel;
+            //ArrayList<Packet> receiverWindow = new ArrayList<Packet>();
+            //boolean haveAllPackets = false; 
             
             ArrayList<Packet> listOfPackets = new ArrayList<Packet>(); 
             
@@ -72,16 +100,31 @@ public class MeldanUDPServer {
             	
             	
 	            acceptConnection(channel, buf);  //Accept connection from the client
+	            
+	            /*
+	    		 * This will check the receiver list every 3 seconds (3000 milliseconds)
+	    		 * We are passing a lock so that no other threads can access the list while we are using it.
+	    		 */
+	    		timer = new Timer(3000, new checkingListActionListener(accountLock));
+	    		timer.start();
+	    		
 	         
                 SocketAddress router = null;
-	
+                int testCount = 0;
 	            // Accept the data from the client
 	            for ( ; ; ) {
 	            	System.out.println();
 	            	
 	                buf.clear(); //clears the buffer to accept more packets(to accept raw data)
 	                router = channel.receive(buf); //accepts raw data
-	                Packet packet = receivePacket(channel, buf, router);
+	                setRouterAdr(router);     //Added by Dan
+	                System.out.println("BEFO " + (++testCount));
+	                Packet packet = null;
+	                synchronized(accountLock)
+	                {
+	                packet = receivePacket(channel, buf, router);
+	                }
+	                System.out.println("AFTE " + (testCount));
 	                
 	                System.out.println("My payload is, without padding: ");
 	                String payload = new String(packet.getPayload(), UTF_8).trim();
@@ -89,18 +132,31 @@ public class MeldanUDPServer {
 	                logger.info("Payload: {}", payload);
 	                logger.info("Router: {}", router);
 	                
-	                /*
-	                 * If I get a SYN packet when I am expecting a DATA packet, it means  
-	                 * I have received all packets. Get out of the for loop and wait for another client request. 
-	                 */ 
-	                if(packet.getType() == 0)
+	              // listOfPackets.add(packet);
+	             //note on type-casting here: the sequence number cannot be bigger than Integer.MAX_VALUE. 
+	                synchronized(accountLock)
 	                {
-	                	packetWithAddOfClient = new Packet(packet);
-	                	break;
+	            		if(isInList((int)packet.getSequenceNumber()))
+	            		{
+	            			System.out.println("Duplicate Packet - already in receiver window.");
+	            		}
+	            		else
+	            			receiverWindow.add(packet);  	                	
 	                }
 	                
-	               listOfPackets.add(packet);
 	                
+	                /*
+	                 * Before it used to be a SYN packet that breaks this loop.   
+	                 *  Now, the timer will set a flag that will break this loop when certain conditions are met. 
+	                 */ 
+	                synchronized(accountLock)
+	                {
+		                if( haveAllPackets == true /*packet.getType() == 0*/)
+		                {
+		                	packetWithAddOfClient = new Packet(packet);
+		                	break;
+		                }
+	                }
 	
 	            }
 	            
@@ -111,8 +167,8 @@ public class MeldanUDPServer {
 	            /**
 	             * This gets all the packets that we received from the client and puts them together 
 	             */
-	            
-	            Iterator<Packet> iter = listOfPackets.iterator();
+	            Collections.sort(receiverWindow);
+	            Iterator<Packet> iter = receiverWindow.iterator();
 	            String dataFromClient = "";
 	            while(iter.hasNext())
 	            {
@@ -127,7 +183,7 @@ public class MeldanUDPServer {
 	            /**
 	             * Write a method/statements to do something with the data that we accepted. Ex: see if it is a get or a post
 	             */
-	            
+	            /*
 	            // WRITE HERE:
 	            String [] arr = dataFromClient.split(" ");
 	            
@@ -157,7 +213,7 @@ public class MeldanUDPServer {
                 listOfPackets.clear(); // Clears the list of packets received so that in the next iteration
                                        // we only store the new packets received for that iteration 
 	            					   // instead of appending them to old packets from a previous iteration
-                System.out.println();
+                System.out.println(); */
                 logger.info("EchoServer is listening at {}", channel.getLocalAddress());
                 
                 
@@ -168,6 +224,93 @@ public class MeldanUDPServer {
     	
     	
     	
+   }
+   
+   /*
+    * Returns an ordered list of current sequence numbers in the receiver window. 
+    */
+   public static ArrayList<Integer> currentSequenceNumbers()
+   {
+	   ArrayList<Integer> tmp = new ArrayList<Integer>();
+	   
+	   for(int i = 0; i < tmp.size(); i++)
+	   {
+		   tmp.add((int)receiverWindow.get(i).getSequenceNumber());
+	   }
+	   
+	   Collections.sort(tmp);
+	   return tmp;
+   }
+    
+   /*
+    * Returns a deep copy of the packet with a certain sequence number if it is in the list,
+    * null otherwise.  
+    */
+   static Packet getPacketWithSequenceNum(int seqNum)
+   {
+	   Packet p = null;
+	   
+	   try
+   		{
+	    	for(int i =0; i< receiverWindow.size(); i++)
+	    	{
+	    		if((int)receiverWindow.get(i).getSequenceNumber() == seqNum)
+	    		{
+	    			p = new Packet(receiverWindow.get(i));
+	    		}
+	    	}
+   		}
+   		catch(IndexOutOfBoundsException e)
+   		{
+   			return null;
+   		}
+   	
+		return p;
+	   
+   }
+    
+   /**
+    * Sets the total amount of packets that the server is supposed to receive
+    * @param n
+    */
+    static void setTotalDataPackets(int n)
+   {
+	   totalDataPackets = n;
+   }
+    
+   static int getReceiverWindowSize()
+   {
+	   return receiverWindow.size();
+   }
+   
+   static int getTotalDataPackets()
+   {
+	   return totalDataPackets;
+   }
+   
+   static void setHaveAllPackets(boolean bool)
+   {
+	   haveAllPackets = bool;
+   }
+   
+   static void setRouterAdr(SocketAddress router)
+   {
+	   routerAdr = router;
+   }
+   
+   static SocketAddress getRouterAdr()
+   {
+	   return routerAdr;
+   }
+   
+   static DatagramChannel getCurrentChannel()
+   {
+	   return currentChannel;
+   }
+   
+   static boolean getHaveAllPackets()
+   {
+	   return haveAllPackets;
    }
    
     private byte[] post(String[] arr, String dataFromClient, Packet packetWithAddOfClient,
@@ -503,4 +646,240 @@ public class MeldanUDPServer {
         MeldanUDPServer server = new MeldanUDPServer();
         server.listenAndServe(port);
     }
+    
+    public static boolean isInList(int sequenceNum)
+    {
+    	try
+    	{
+	    	for(int i =0; i< receiverWindow.size(); i++)
+	    	{
+	    		if((int)receiverWindow.get(i).getSequenceNumber() == sequenceNum)
+	    		{
+	    			return true;
+	    		}
+	    	}
+    	}
+    	catch(IndexOutOfBoundsException e)
+    	{
+    		return false;
+    	}
+    	
+		return false;
+    	
+    }
+    
+    
 }
+
+
+
+/**
+ * Waits for an event in order to check the list (receiver window).
+ * This class implements ActionListener. Waits for an event to occur in order to run.
+ * In this case it is used with javax.swing.Timer (Timer) class in order to run every 
+ * certain period of time.
+ */
+final class checkingListActionListener implements ActionListener {
+	/*
+	 * Used for synchronization purposes 
+	 */
+	private final Object lock;
+	
+	private static boolean gotPacketZero = false;
+	
+	 public checkingListActionListener(Object lock)
+	 {
+		 super();  // Calls the parent(ActionListener) default constructor explicitly. 
+		 this.lock = lock; 
+	 }
+	 
+	  public void actionPerformed(ActionEvent e) {
+		
+		/*
+		 * This has to be atomic. That's why we use the lock so that no other threads
+		 * can do operations on the list while this method is checking the list. 
+		 */
+		 
+		synchronized(lock)
+		{
+		    System.out.println("3 seconds have passed. Checking the receiver window...");
+		    
+		    // Checking if we have received packet zero
+		    //if(gotPacketZero == false)
+		    //{
+			    if(MeldanUDPServer.isInList(0))
+			    {
+			    	Packet packetToAnalyze = MeldanUDPServer.getPacketWithSequenceNum(0);
+			    	
+			    	String sval = new String(packetToAnalyze.getPayload());
+			    	int val = Integer.parseInt(sval);
+			    	MeldanUDPServer.setTotalDataPackets(val);
+			    	
+			    	/**
+			    	 * IMP PART
+			    	 */
+			    	if(MeldanUDPServer.getTotalDataPackets() != MeldanUDPServer.getReceiverWindowSize())
+			    	{
+			    	
+				    	String superNakStr = "";
+					    Packet pThatContainsAddClient = null;
+					    for(int i = 0; i < MeldanUDPServer.getTotalDataPackets(); i++)
+					    {
+					    	if(!MeldanUDPServer.isInList(i))
+					    	{
+					    		superNakStr +=  i + " ";
+					    	}
+					    	else
+					    		pThatContainsAddClient = MeldanUDPServer.getPacketWithSequenceNum(i);
+					    }
+					    
+					 // Packet with information about the packets that were not received //SUPER NAK
+				    	Packet superNak = new Packet.Builder()
+				                .setType(4) // Type 4 is a NAK packet
+				                .setSequenceNumber(99999)
+				                .setPortNumber(pThatContainsAddClient.getPeerPort())
+				                .setPeerAddress(pThatContainsAddClient.getPeerAddress())
+				                .setPayload(superNakStr.getBytes())
+				                .create();
+				    	
+				    	
+				    	//Sending Super NAK to the client 
+				    	try {
+							MeldanUDPServer.getCurrentChannel().send(superNak.toBuffer(), MeldanUDPServer.getRouterAdr());
+						} catch (IOException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
+						System.out.println();
+			    	}
+			    	else
+			    	{
+			    		System.out.println("I HAVE ALL PACKETS!!!!!!!!!");
+			    		MeldanUDPServer.setHaveAllPackets(true);
+			    		
+			    		// Packet with information about the packets that were not received //SUPER NAK
+				    	Packet superNak = new Packet.Builder()
+				                .setType(4) // Type 4 is a NAK packet
+				                .setSequenceNumber(99999)
+				                .setPortNumber(MeldanUDPServer.getPacketWithSequenceNum(0).getPeerPort())
+				                .setPeerAddress(MeldanUDPServer.getPacketWithSequenceNum(0).getPeerAddress())
+				                .setPayload("-56".getBytes())
+				                .create();
+				    	
+				    	
+				    	//Sending Super NAK to the client 
+				    	try {
+							MeldanUDPServer.getCurrentChannel().send(superNak.toBuffer(), MeldanUDPServer.getRouterAdr());
+						} catch (IOException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
+						System.out.println();
+			    		
+			    		MeldanUDPServer.stopTimer();
+			    	}
+			    	
+			    	/***
+			    	 * End of |IMP
+			    	 */
+			    	// If we got all the packets that we are supposed to get
+			    	//sets a flag to true so that the server can stop accepting packets
+			    	/*
+			    	if(/*MeldanUDPServer.getTotalDataPackets()val == MeldanUDPServer.getReceiverWindowSize())
+			    	{
+			    		System.out.println("I HAVE ALL PACKETS!!!!!!!!!");
+			    		MeldanUDPServer.setHaveAllPackets(true);
+			    		MeldanUDPServer.stopTimer();
+			    		//return;
+			    	}
+			    	*/
+			    	gotPacketZero = true;
+			    	
+			    }
+			    else
+			    {
+			    	Packet pThatContainsAddClient = null;
+				    for(int i = 0; i < MeldanUDPServer.getTotalDataPackets(); i++)
+				    {
+				    	System.out.println("isInList: " + MeldanUDPServer.isInList(i) );
+				    	if(!MeldanUDPServer.isInList(i))
+				    	{
+				    		
+				    	}
+				    	else
+				    		pThatContainsAddClient = MeldanUDPServer.getPacketWithSequenceNum(i);
+				    }
+				    System.out.println("Testing ABC: "+pThatContainsAddClient);
+			    	
+			    	// Packet with information about the packets that were not received //SUPER NAK
+			    	Packet superNak = new Packet.Builder()
+			                .setType(4) // Type 4 is a NAK packet
+			                .setSequenceNumber(99999)
+			                .setPortNumber(pThatContainsAddClient.getPeerPort())
+			                .setPeerAddress(pThatContainsAddClient.getPeerAddress())
+			                .setPayload("0".getBytes())
+			                .create();
+			    	
+			    	
+			    	//Sending Super NAK to the client 
+			    	try {
+						MeldanUDPServer.getCurrentChannel().send(superNak.toBuffer(), MeldanUDPServer.getRouterAdr());
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+					System.out.println();
+			    }
+		    //}
+		    // Find the sequence numbers that we are missing and send a SUPER NAK to the client
+		    ArrayList<Integer> seqNumsThatWeHave = MeldanUDPServer.currentSequenceNumbers();
+		    // We can implement this later to increase performance. 
+		    /*
+		    ArrayList<Integer> missingSeqNums = new ArrayList<Integer>(); 
+		    for(int i = 0; i < seqNumsThatWeHave.size(); i++)
+		    {
+		    	for(int j = i; j < seqNumsThatWeHave.get(i); j++)
+		    	{
+		    		missingSeqNums.add(j);
+		    	}
+		    }
+		    */
+		    //if(true/*MeldanUDPServer.getHaveAllPackets() == false*/) //Redundant statement -taken care of above
+		    /*{
+			    String superNakStr = "GOT EM ALL";
+			    Packet pThatContainsAddClient = null;
+			    for(int i = 0; i < MeldanUDPServer.getReceiverWindowSize(); i++)
+			    {
+			    	if(!MeldanUDPServer.isInList(i))
+			    	{
+			    		superNakStr +=  i + " ";
+			    	}
+			    	else
+			    		pThatContainsAddClient = MeldanUDPServer.getPacketWithSequenceNum(i);
+			    }
+			    
+			 // Packet with information about the packets that were not received //SUPER NAK
+		    	Packet superNak = new Packet.Builder()
+		                .setType(4) // Type 4 is a NAK packet
+		                .setSequenceNumber(99999)
+		                .setPortNumber(pThatContainsAddClient.getPeerPort())
+		                .setPeerAddress(pThatContainsAddClient.getPeerAddress())
+		                .setPayload(superNakStr.getBytes())
+		                .create();
+		    	
+		    	
+		    	//Sending Super NAK to the client 
+		    	try {
+					MeldanUDPServer.getCurrentChannel().send(superNak.toBuffer(), MeldanUDPServer.getRouterAdr());
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				System.out.println();
+				*/
+		    }
+		}
+
+	  }
+	  
+	  

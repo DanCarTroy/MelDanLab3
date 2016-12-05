@@ -30,6 +30,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * 1 : SYN-ACK
  * 2 : ACK
  * 3 : Data
+ * 4 : NAK
  */
 
 public class MeldanUDPClient {
@@ -49,7 +50,7 @@ public class MeldanUDPClient {
     		
     		while(true)
     		{
-    			String requestToSend = takeUserInput();
+    			String requestToSend = generateMySampleStr();//takeUserInput();
     			establishConnection(channel, routerAddr, serverAddr);
     			
     			System.out.println();
@@ -104,6 +105,7 @@ public class MeldanUDPClient {
     			System.out.println();
 				System.out.println("I SENT ALL MY PACKETS TO THE SERVER");
 				
+				/*
 				//Send SYN to let the server know I have sent all my packets
 				Packet p = new Packet.Builder()
 	                    .setType(0)
@@ -116,14 +118,50 @@ public class MeldanUDPClient {
 	            channel.send(p.toBuffer(), routerAddr);
 	
 	            logger.info("Sending \"{}\" to router at {}", new String(p.getPayload(), UTF_8), routerAddr);
+				*/
 				
-				// If I am here it means I was able to send my GET or POST request( in the form of packets) to server.
 				
 				/*
-				 * Write a method that receives response (all the packets) from the server
+				 * Waiting for confirmation that server has received all packets. Client expecting a SUPER NAK and discards any other duplicates. 
+				 * It sends all 
 				 */
-	            // Note: Here, client is just catching one packet from the server. If the server response is multiple packets 
-	            // only the first packet will be caught and the rest will be dropped. To fix this we will have to write a loop. 
+				logger.info("Expecting a superNAK...");
+				int testC = 0;
+				while(true)
+				{
+					Packet superNakFromServer = receivePacket(channel);
+					try{
+					if(superNakFromServer.getType() == 4)
+						System.out.println("YES, IT IS A SUPER NAK.");
+					    String strMis = (new String(superNakFromServer.getPayload())).trim();
+					    //if(strM)
+						int missingPackets = Integer.parseInt(strMis);
+						System.out.println(strMis);
+						if(missingPackets == 0)
+						{
+							channel.send(pArray[pArray.length - 1].toBuffer(), routerAddr);
+						}
+						else if(missingPackets < 0)
+						{
+							channel.send(pArray[0].toBuffer(), routerAddr); //Sending a default packet to get the server unstuck.
+							break;
+							//channel.send(pArray[pArray.length - 1].toBuffer(), routerAddr);
+						}
+						else if(missingPackets > 0)
+						{
+							channel.send(pArray[missingPackets-1].toBuffer(), routerAddr);
+						}
+						testC++;
+						if(testC == 10)
+						break;
+					}
+					catch(NullPointerException e)
+					{
+						System.err.println("This error does not affect execution and results of the program");
+						e.printStackTrace();
+					}
+				}
+					logger.info("Received a superNAK!!");
 	             
 	            ArrayList<Packet> listOfPackets = new ArrayList<Packet>(); 
                 Packet packetWithAddOfServer = null; // It is going to be used to store the address of the server in case we want to reply. 
@@ -306,11 +344,12 @@ public class MeldanUDPClient {
     	int a = data.length; // The length of the string
     	int b = Packet.MAX_LEN - Packet.MIN_LEN; // The maximum size of the packet (payload of the packet without counting the 11 extra bytes)
     	
-    	int numOfPackets = (a / b) + ((a % b == 0) ? 0 : 1);
+    	int numOfPackets = (a / b) + ((a % b == 0) ? 0 : 1); 
     	
     	//System.out.print("Num of packets: "+numOfPackets );
     	
     	Packet[] arrOfPackets = new Packet[numOfPackets];
+    	
     
     	byte[] tmpPayload = new byte[b];
     	int firstIndex, lastIndex = 0;
@@ -356,14 +395,31 @@ public class MeldanUDPClient {
     		tmpPayload = new byte[b];
     	}
     	
+    	// Packet with information about the total number of packets //PACKET ZERO
+    	Packet packet = new Packet.Builder()
+                .setType(3) // Type 3 is an DATA packet
+                .setSequenceNumber(0)
+                .setPortNumber(serverAddr.getPort())
+                .setPeerAddress(serverAddr.getAddress())
+                .setPayload(String.valueOf(numOfPackets + 1).getBytes())
+                .create();
+    	//Adding PACKET ZERO to the arrayOfPackets
     	
+    	Packet[] arrOfPacketsPlusZero = new Packet[numOfPackets+1];
     	
-    	return arrOfPackets;
+    	for(int i = 0; i < arrOfPackets.length; i++ )
+    	{
+    		arrOfPacketsPlusZero[i] = arrOfPackets[i];
+    	}
+    	arrOfPacketsPlusZero[arrOfPacketsPlusZero.length - 1] = new Packet(packet);
+    	
+    	return arrOfPacketsPlusZero;
     }
     
     
 
     public static void main(String[] args) throws IOException {
+    	
         OptionParser parser = new OptionParser();
         parser.accepts("router-host", "Router hostname")
                 .withOptionalArg()
@@ -397,6 +453,8 @@ public class MeldanUDPClient {
         runClient(routerAddress, serverAddress);
         
         
+    	
+        
         // Testing transformation of string to packets.
         /*
         String strTest = generateMySampleStr();
@@ -417,8 +475,69 @@ public class MeldanUDPClient {
         }
         
         */
+    	
+    	// Testing inserting inserting element to list by index.
+    	
+    	/*
+    	ArrayList<String> myList = new ArrayList<String>();
+    	System.out.println("The size of the list is: " + myList.size());
+    	
+    	//myList.add(3, "First String added at index 0.");
+    	insertIntoList(myList, "First String added at index 3.", 3);
+    	System.out.println("The size of the list after adding is: " + myList.size());
+    	
+    	for(int i=0; i < myList.size(); i++)
+    	{
+    		System.out.println("Element " + i + " is: "+ myList.get(i) );
+    	}
+    	
+    	//myList.add(1, "Second String added at index 1.");
+    	insertIntoList(myList, "Second String added at index 1.", 1);
+    	System.out.println("The size of the list after adding is: " + myList.size());
+    	
+    	for(int i=0; i < myList.size(); i++)
+    	{
+    		System.out.println("Element " + i + " is: "+ myList.get(i) );
+    	}
+    	*/
         
     }
+    
+    //Won't need
+    public static void insertIntoList(ArrayList<String> list, String element, int index)
+    {
+    	try
+    	{
+    		System.out.println("I'm here try! "+ index);
+    		if(list.get(index) != null)
+			{
+    			System.out.println("I'm here if! "+ index);
+			}
+			else
+			{
+				list.add(index, element);
+				System.out.println("I'm here else! "+ index);
+			}
+    		
+    	}
+    	catch(IndexOutOfBoundsException e)
+    	{
+    		System.out.println("I'm here catch! "+ index);
+    		for(int i = 0; i < (index); i++)
+    		{
+    			//if(list.get(index) != null)
+    			//{
+    				
+    			//}
+    			//else
+    				list.add(i, null);
+    		}
+    		
+    		list.add(index, element);
+    	}
+    }
+    
+    
     
     public static String generateMySampleStr()
     {

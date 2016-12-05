@@ -13,7 +13,7 @@ import java.nio.ByteOrder;
  * Packet represents a simulated network packet.
  * As we don't have unsigned types in Java, we can achieve this by using a larger type.
  */
-public class Packet {
+public class Packet implements Comparable<Packet>{
 	
     public static final int MIN_LEN = 11;
     public static final int MAX_LEN = MIN_LEN + 1013; //1024
@@ -209,4 +209,10 @@ public class Packet {
             return new Packet(type, sequenceNumber, peerAddress, portNumber, payload);
         }
     }
+
+	@Override
+	public int compareTo(Packet other) {
+		// TODO Auto-generated method stub
+		return Integer.compare((int)this.getSequenceNumber(), (int)other.getSequenceNumber());
+	}
 }
